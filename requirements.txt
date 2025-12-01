@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pandas
+python-dotenv
+python-multipart
+python-dateutil
+alembic
+boto3
+xlrd
