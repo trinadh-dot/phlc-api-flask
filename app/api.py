@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Depends, HTTPException, Form, Request, Query
-from . import services, crud
+from . import services, crud, models
 from .db import SessionLocal
 from .schemas import IngestResponse, StatusResponse, S3IngestRequest
 import io
@@ -29,16 +29,24 @@ async def ingest_postgres(file: UploadFile = File(...), background_tasks: Backgr
     contents = await file.read()
     file_hash = services.compute_sha256_bytes(contents)
     ingestion_type = 'Postgres'
-    existing = crud.get_job_by_hash(db, file_hash, ingestion_type=ingestion_type)
-    if existing:
-        return IngestResponse(
-            job_id=existing.id,
-            message=f'File already ingested to PostgreSQL. Current status: {existing.status}',
-            file_hash=existing.file_hash,
-            status=existing.status,
-            ingestion_type=existing.ingestion_type,
-            is_duplicate=True
-        )
+    
+    # Check for duplicate (only if there's a successful job)
+    if crud.has_successful_job(db, file_hash, ingestion_type=ingestion_type):
+        completed_job = db.query(models.Job).filter(
+            models.Job.file_hash == file_hash,
+            models.Job.ingestion_type == ingestion_type,
+            models.Job.status == 'completed'
+        ).first()
+        if completed_job:
+            return IngestResponse(
+                job_id=completed_job.id,
+                message=f'File already successfully ingested to PostgreSQL. Status: {completed_job.status}',
+                file_hash=completed_job.file_hash,
+                status=completed_job.status,
+                ingestion_type=completed_job.ingestion_type,
+                is_duplicate=True
+            )
+    
     job = crud.create_job(db, file_hash=file_hash, ingestion_type=ingestion_type, status='running')
     
     # Step 5: Schedule background processing
@@ -72,16 +80,24 @@ async def ingest_postgres_from_s3(
     try:
         contents = services.download_file_from_s3(s3_key)
         file_hash = services.compute_sha256_bytes(contents)
-        existing = crud.get_job_by_hash(db, file_hash, ingestion_type=ingestion_type)
-        if existing:
-            return IngestResponse(
-                job_id=existing.id,
-                message=f'File already ingested to PostgreSQL. Current status: {existing.status}',
-                file_hash=existing.file_hash,
-                status=existing.status,
-                ingestion_type=existing.ingestion_type,
-                is_duplicate=True
-            )
+        
+        # Step 3: Check for duplicate (only if there's a successful job)
+        if crud.has_successful_job(db, file_hash, ingestion_type=ingestion_type):
+            completed_job = db.query(models.Job).filter(
+                models.Job.file_hash == file_hash,
+                models.Job.ingestion_type == ingestion_type,
+                models.Job.status == 'completed'
+            ).first()
+            if completed_job:
+                return IngestResponse(
+                    job_id=completed_job.id,
+                    message=f'File already successfully ingested to PostgreSQL. Status: {completed_job.status}',
+                    file_hash=completed_job.file_hash,
+                    status=completed_job.status,
+                    ingestion_type=completed_job.ingestion_type,
+                    is_duplicate=True
+                )
+        
         job = crud.create_job(db, file_hash=file_hash, ingestion_type=ingestion_type, status='running')
         filename = s3_key.split('/')[-1]
         bio = io.BytesIO(contents)

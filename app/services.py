@@ -83,6 +83,76 @@ def is_deliverable_statuses_file(filename: str) -> bool:
         filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls')
     )
 
+def is_hubspot_file(filename: str) -> bool:
+    """Check if filename matches hubspot pattern"""
+    filename_lower = filename.lower()
+    return filename_lower.startswith('hubspot') and (
+        filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls')
+    )
+
+def parse_hubspot_table_name(filename: str) -> str:
+    """
+    Extract table name from hubspot filename.
+    Example: 'hubspot-custom-report-september-ta-2025-09-30.xls' -> 'hubspot_ta'
+    """
+    filename_lower = filename.lower()
+    # Remove extension
+    base = os.path.splitext(filename_lower)[0]
+    # Split by hyphens
+    parts = base.split('-')
+    
+    # Find 'hubspot' and 'ta' in the parts
+    hubspot_idx = None
+    ta_idx = None
+    
+    for i, part in enumerate(parts):
+        if part == 'hubspot':
+            hubspot_idx = i
+        elif part == 'ta':
+            ta_idx = i
+    
+    if hubspot_idx is not None and ta_idx is not None:
+        return 'hubspot_ta'
+    elif hubspot_idx is not None:
+        # If only hubspot found, use hubspot as table name
+        return 'hubspot'
+    else:
+        # Fallback: use first part
+        return parts[0] if parts else 'hubspot'
+
+def parse_hubspot_date(filename: str) -> tuple:
+    """
+    Parse month and year from hubspot filename.
+    Example: 'hubspot-custom-report-september-ta-2025-09-30.xls' -> (9, 2025)
+    Returns (month, year) or (None, None) if parsing fails
+    """
+    filename_lower = filename.lower()
+    # Remove extension
+    base = os.path.splitext(filename_lower)[0]
+    
+    # Try to find date pattern YYYY-MM-DD at the end
+    # Pattern: -YYYY-MM-DD
+    date_pattern = r'(\d{4})-(\d{2})-(\d{2})$'
+    match = re.search(date_pattern, base)
+    
+    if match:
+        year = int(match.group(1))
+        month = int(match.group(2))
+        if 1 <= month <= 12:
+            return (month, year)
+    
+    # Try alternative pattern: YYYYMMDD
+    date_pattern2 = r'(\d{4})(\d{2})(\d{2})$'
+    match2 = re.search(date_pattern2, base)
+    
+    if match2:
+        year = int(match2.group(1))
+        month = int(match2.group(2))
+        if 1 <= month <= 12:
+            return (month, year)
+    
+    return (None, None)
+
 def sanitize_column_name(name: str) -> str:
     """
     Sanitize column name for PostgreSQL best practices:
@@ -154,6 +224,9 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
         
         # Special handling for Deliverable_Statuses files
         is_deliverable_statuses = is_deliverable_statuses_file(filename_base)
+        
+        # Special handling for HubSpot files
+        is_hubspot = is_hubspot_file(filename_base)
         
         if is_ta_dashboard:
             # Special processing for TA_Dashboard_v4.xlsx
@@ -306,71 +379,71 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                     tables_created.append(f"{table_name} ({inserted} rows)")
                     total_inserted += inserted
                 
-                # Process last 4 yyyymm sheets into practices_hours_table and practice_table
+                # Process last 4 yyyymm sheets into practices_hours and practices
                 if last_4_yyyymm_sheets:
-                    # Create practice_table if not exists, or alter if exists with old schema
-                    if not inspector.has_table('practice_table'):
-                        practice_table_sql = """
-                        CREATE TABLE practice_table (
+                    # Create practices if not exists, or alter if exists with old schema
+                    if not inspector.has_table('practices'):
+                        practices_table_sql = """
+                        CREATE TABLE practices (
                             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                             ept_appid VARCHAR(255) UNIQUE NOT NULL,
                             practice_name TEXT,
-                            created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                            updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
                         )
                         """
-                        conn.execute(text(practice_table_sql))
-                        print("✅ Created practice_table")
+                        conn.execute(text(practices_table_sql))
+                        print("✅ Created practices")
                     else:
                         # Check if practice_name is VARCHAR and needs to be altered to TEXT
-                        columns = inspector.get_columns('practice_table')
+                        columns = inspector.get_columns('practices')
                         for col in columns:
                             if col['name'] == 'practice_name' and 'varchar' in str(col['type']).lower():
-                                alter_sql = text("ALTER TABLE practice_table ALTER COLUMN practice_name TYPE TEXT")
+                                alter_sql = text("ALTER TABLE practices ALTER COLUMN practice_name TYPE TEXT")
                                 conn.execute(alter_sql)
-                                print("✅ Altered practice_table.practice_name to TEXT")
+                                print("✅ Altered practices.practice_name to TEXT")
                                 break
-                        print("✅ practice_table already exists")
+                        print("✅ practices already exists")
                     
-                    # Create practices_hours_table if not exists, or alter if exists with old schema
-                    if not inspector.has_table('practices_hours_table'):
+                    # Create practices_hours if not exists, or alter if exists with old schema
+                    if not inspector.has_table('practices_hours'):
                         practices_hours_table_sql = """
-                        CREATE TABLE practices_hours_table (
+                        CREATE TABLE practices_hours (
                             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                             ept_appid VARCHAR(255) NOT NULL,
                             month INTEGER,
                             year INTEGER,
                             column_description TEXT,
                             column_value NUMERIC,
-                            created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                            updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                             UNIQUE(ept_appid, month, year, column_description)
                         )
                         """
                         conn.execute(text(practices_hours_table_sql))
-                        print("✅ Created practices_hours_table with unique constraint on (ept_appid, month, year, column_description)")
+                        print("✅ Created practices_hours with unique constraint on (ept_appid, month, year, column_description)")
                     else:
                         # Check if column_description is VARCHAR and needs to be altered to TEXT
-                        columns = inspector.get_columns('practices_hours_table')
+                        columns = inspector.get_columns('practices_hours')
                         for col in columns:
                             if col['name'] == 'column_description' and 'varchar' in str(col['type']).lower():
-                                alter_sql = text("ALTER TABLE practices_hours_table ALTER COLUMN column_description TYPE TEXT")
+                                alter_sql = text("ALTER TABLE practices_hours ALTER COLUMN column_description TYPE TEXT")
                                 conn.execute(alter_sql)
-                                print("✅ Altered practices_hours_table.column_description to TEXT")
+                                print("✅ Altered practices_hours.column_description to TEXT")
                                 break
                         
                         # Check if total column exists and drop it if present
                         column_names = [col['name'] for col in columns]
                         if 'total' in column_names:
                             try:
-                                drop_total_sql = text("ALTER TABLE practices_hours_table DROP COLUMN IF EXISTS total")
+                                drop_total_sql = text("ALTER TABLE practices_hours DROP COLUMN IF EXISTS total")
                                 conn.execute(drop_total_sql)
-                                print("✅ Removed 'total' column from practices_hours_table")
+                                print("✅ Removed 'total' column from practices_hours")
                             except Exception as e:
                                 print(f"⚠️  Could not drop 'total' column: {e}")
                         
                         # Check if unique constraint exists, if not add it
-                        unique_constraints = inspector.get_unique_constraints('practices_hours_table')
+                        unique_constraints = inspector.get_unique_constraints('practices_hours')
                         has_unique = False
                         for uc in unique_constraints:
                             if set(uc['column_names']) == {'ept_appid', 'month', 'year', 'column_description'}:
@@ -380,16 +453,16 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                         if not has_unique:
                             try:
                                 add_unique_sql = text("""
-                                    ALTER TABLE practices_hours_table 
+                                    ALTER TABLE practices_hours 
                                     ADD CONSTRAINT practices_hours_unique 
                                     UNIQUE(ept_appid, month, year, column_description)
                                 """)
                                 conn.execute(add_unique_sql)
-                                print("✅ Added unique constraint to practices_hours_table")
+                                print("✅ Added unique constraint to practices_hours")
                             except Exception as e:
                                 print(f"⚠️  Could not add unique constraint (may already exist or have duplicates): {e}")
                         
-                        print("✅ practices_hours_table already exists")
+                        print("✅ practices_hours already exists")
                     
                     # Process each of the last 4 yyyymm sheets
                     practices_hours_rows = []
@@ -438,7 +511,7 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                             practice_name_raw = row[practice_name_col] if pd.notna(row[practice_name_col]) else None
                             practice_name = str(practice_name_raw).strip() if practice_name_raw is not None else None
                             
-                            # Track practice for practice_table (only if we have a practice_name)
+                            # Track practice for practices (only if we have a practice_name)
                             if ept_appid not in practice_records and practice_name:
                                 practice_records[ept_appid] = practice_name
                             
@@ -457,12 +530,12 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                                         'column_value': column_value
                                     })
                     
-                    # Upsert into practice_table (update if exists, insert if new)
+                    # Upsert into practices (update if exists, insert if new)
                     if practice_records:
                         # Check which records exist before upsert (for reporting)
                         existing_ept_appids = set()
                         for ept_appid in practice_records.keys():
-                            check_sql = text("SELECT COUNT(*) FROM practice_table WHERE ept_appid = :ept_appid")
+                            check_sql = text("SELECT COUNT(*) FROM practices WHERE ept_appid = :ept_appid")
                             count = conn.execute(check_sql, {'ept_appid': ept_appid}).scalar()
                             if count > 0:
                                 existing_ept_appids.add(ept_appid)
@@ -470,12 +543,12 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                         # Use INSERT ... ON CONFLICT DO UPDATE for upsert
                         for ept_appid, practice_name in practice_records.items():
                             upsert_sql = text("""
-                                INSERT INTO practice_table (ept_appid, practice_name, updated)
+                                INSERT INTO practices (ept_appid, practice_name, updated_at)
                                 VALUES (:ept_appid, :practice_name, CURRENT_TIMESTAMP)
                                 ON CONFLICT (ept_appid) 
                                 DO UPDATE SET 
                                     practice_name = EXCLUDED.practice_name,
-                                    updated = CURRENT_TIMESTAMP
+                                    updated_at = CURRENT_TIMESTAMP
                             """)
                             conn.execute(upsert_sql, {
                                 'ept_appid': ept_appid,
@@ -484,9 +557,9 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                         
                         inserted_practices = len(practice_records) - len(existing_ept_appids)
                         updated_practices = len(existing_ept_appids)
-                        print(f"✅ Updated practice_table: {inserted_practices} new practices added, {updated_practices} practices updated, {len(practice_records)} total processed")
+                        print(f"✅ Updated practices: {inserted_practices} new practices added, {updated_practices} practices updated, {len(practice_records)} total processed")
                     
-                    # Upsert into practices_hours_table (update if exists, insert if new)
+                    # Upsert into practices_hours (update if exists, insert if new)
                     if practices_hours_rows:
                         practices_hours_df = pd.DataFrame(practices_hours_rows)
                         
@@ -496,13 +569,13 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                         
                         # Upsert using ON CONFLICT
                         upsert_sql = text(f"""
-                            INSERT INTO practices_hours_table (ept_appid, month, year, column_description, column_value, updated)
+                            INSERT INTO practices_hours (ept_appid, month, year, column_description, column_value, updated_at)
                             SELECT ept_appid, month, year, column_description, column_value, CURRENT_TIMESTAMP
                             FROM {temp_table}
                             ON CONFLICT (ept_appid, month, year, column_description)
                             DO UPDATE SET
                                 column_value = EXCLUDED.column_value,
-                                updated = CURRENT_TIMESTAMP
+                                updated_at = CURRENT_TIMESTAMP
                         """)
                         
                         result = conn.execute(upsert_sql)
@@ -512,8 +585,8 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                         conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
                         
                         total_inserted += inserted_hours
-                        tables_created.append(f"practices_hours_table ({inserted_hours} rows upserted)")
-                        print(f"✅ Upserted {inserted_hours} rows into practices_hours_table from last 4 sheets (updated existing, inserted new)")
+                        tables_created.append(f"practices_hours ({inserted_hours} rows upserted)")
+                        print(f"✅ Upserted {inserted_hours} rows into practices_hours from last 4 sheets (updated existing, inserted new)")
             
             # Update job with all tables created
             db = SessionLocal()
@@ -599,8 +672,8 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                             create_table_sql += f",\n                        {col} TEXT"
                     
                     create_table_sql += """,
-                        created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                        updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"""
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"""
                     
                     # Add unique constraint on month, year, and first data column (if exists)
                     # This ensures we can identify duplicate records
@@ -620,7 +693,7 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                     new_columns = ['month', 'year'] + [col.lower() for col in sanitized_columns if col not in ['month', 'year']]
                     
                     # Check if we need to add new columns
-                    missing_columns = [col for col in new_columns if col not in existing_columns and col not in ['id', 'created', 'updated']]
+                    missing_columns = [col for col in new_columns if col not in existing_columns and col not in ['id', 'created_at', 'updated_at']]
                     if missing_columns:
                         for col in missing_columns:
                             try:
@@ -646,7 +719,7 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                     
                     # Build UPDATE SET clause for all data columns
                     update_cols = [f"{col} = EXCLUDED.{col}" for col in data_columns]
-                    set_clause = ', '.join(update_cols) + ", updated = CURRENT_TIMESTAMP"
+                    set_clause = ', '.join(update_cols) + ", updated_at = CURRENT_TIMESTAMP"
                     
                     upsert_sql = text(f"""
                         INSERT INTO {table_name} ({', '.join(all_columns)})
@@ -660,7 +733,174 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                         INSERT INTO {table_name} ({', '.join(all_columns)})
                         SELECT {', '.join(all_columns)} FROM {temp_table}
                         ON CONFLICT (month, year)
-                        DO UPDATE SET updated = CURRENT_TIMESTAMP
+                        DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+                    """)
+                
+                result = conn.execute(upsert_sql)
+                inserted_count = result.rowcount
+                
+                # Drop temp table
+                conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
+                
+                print(f"✅ Upserted {inserted_count} rows into {table_name} (Month: {month}, Year: {year})")
+            
+            # Update job status
+            db = SessionLocal()
+            from .crud import get_job, update_job_status
+            try:
+                job = get_job(db, job_id)
+                if job:
+                    update_job_status(db, job,
+                        status='completed',
+                        table_name=table_name,
+                        inserted_count=inserted_count,
+                        message=f'OK - Upserted {inserted_count} rows into {table_name} (Month: {month}, Year: {year})'
+                    )
+                    print(f"✅ Job {job_id} completed - {inserted_count} rows upserted into {table_name}")
+                else:
+                    print(f"⚠️  Job {job_id} not found when trying to update to completed")
+            except Exception as update_error:
+                print(f"❌ Error updating job to completed: {update_error}")
+                db.rollback()
+                raise
+        elif is_hubspot:
+            # Special processing for HubSpot files
+            # Reset file pointer to beginning in case it was read before
+            if hasattr(file_bytes, 'seek'):
+                file_bytes.seek(0)
+            
+            # Parse month and year from filename
+            month, year = parse_hubspot_date(filename_base)
+            if month is None or year is None:
+                raise ValueError(f"Could not parse date from filename: {filename_base}. Expected format: hubspot-*-ta-YYYY-MM-DD.xls")
+            
+            print(f"📅 Processing HubSpot file: {filename_base} (Month: {month}, Year: {year})")
+            
+            # Read excel into DataFrame (if multiple sheets, take first)
+            df = pd.read_excel(file_bytes, sheet_name=0)
+            
+            # Sanitize column names for PostgreSQL best practices
+            original_columns = df.columns.tolist()
+            sanitized_columns = [sanitize_column_name(col) for col in df.columns]
+            df.columns = sanitized_columns
+            
+            # Log column name changes for debugging
+            if original_columns != sanitized_columns:
+                print(f"📝 Column names sanitized:")
+                for orig, sanitized in zip(original_columns, sanitized_columns):
+                    if orig != sanitized:
+                        print(f"   '{orig}' -> '{sanitized}'")
+            
+            # Get table name from filename pattern
+            table_name = parse_hubspot_table_name(filename_base)
+            
+            # Add month and year columns to the dataframe
+            df['month'] = month
+            df['year'] = year
+            
+            # Reorder columns: month, year, then all other columns
+            column_order = ['month', 'year'] + [col for col in sanitized_columns if col not in ['month', 'year']]
+            df = df[column_order]
+            
+            # Deduplicate rows based on unique constraint columns to prevent ON CONFLICT errors
+            # Use the first data column (if exists) along with month and year as the unique key
+            if sanitized_columns:
+                unique_key_cols = ['month', 'year', sanitized_columns[0]]
+                # Drop duplicates, keeping the first occurrence
+                df = df.drop_duplicates(subset=unique_key_cols, keep='first')
+                print(f"📊 Deduplicated data: {len(df)} unique rows (based on {', '.join(unique_key_cols)})")
+            else:
+                # If no data columns, just deduplicate on month and year
+                df = df.drop_duplicates(subset=['month', 'year'], keep='first')
+                print(f"📊 Deduplicated data: {len(df)} unique rows (based on month, year)")
+            
+            with engine.begin() as conn:
+                from sqlalchemy import inspect as sql_inspect, text
+                inspector = sql_inspect(conn)
+                
+                # Check if table exists
+                table_exists = inspector.has_table(table_name)
+                
+                if not table_exists:
+                    # Create table with id, month, year, and all data columns
+                    create_table_sql = f"""
+                    CREATE TABLE {table_name} (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        month INTEGER NOT NULL,
+                        year INTEGER NOT NULL"""
+                    
+                    # Add all data columns (excluding month and year which are already added)
+                    for col in sanitized_columns:
+                        if col not in ['month', 'year']:
+                            create_table_sql += f",\n                        {col} TEXT"
+                    
+                    create_table_sql += """,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"""
+                    
+                    # Add unique constraint on month, year, and first data column (if exists)
+                    if sanitized_columns:
+                        first_col = sanitized_columns[0]
+                        create_table_sql += f",\n                        UNIQUE(month, year, {first_col})"
+                    else:
+                        create_table_sql += ",\n                        UNIQUE(month, year)"
+                    
+                    create_table_sql += "\n                    )"
+                    
+                    conn.execute(text(create_table_sql))
+                    print(f"✅ Created table {table_name}")
+                else:
+                    # Table exists: check if columns match
+                    existing_columns = [col['name'].lower() for col in inspector.get_columns(table_name)]
+                    new_columns = ['month', 'year'] + [col.lower() for col in sanitized_columns if col not in ['month', 'year']]
+                    
+                    # Check if we need to add new columns
+                    missing_columns = [col for col in new_columns if col not in existing_columns and col not in ['id', 'created_at', 'updated_at']]
+                    if missing_columns:
+                        for col in missing_columns:
+                            try:
+                                alter_sql = text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col} TEXT")
+                                conn.execute(alter_sql)
+                                print(f"✅ Added column {col} to {table_name}")
+                            except Exception as e:
+                                print(f"⚠️  Could not add column {col}: {e}")
+                
+                # Use temporary table for upsert
+                temp_table = f"{table_name}_temp_{job_id.hex[:8]}"
+                df.to_sql(temp_table, conn, if_exists='replace', index=False)
+                
+                # Build upsert SQL
+                # Use month, year, and first data column as unique constraint
+                data_columns = [col for col in sanitized_columns if col not in ['month', 'year']]
+                all_columns = ['month', 'year'] + data_columns
+                
+                if data_columns:
+                    # Use first data column as part of unique constraint
+                    unique_cols = ['month', 'year', data_columns[0]]
+                    unique_cols_str = ', '.join(unique_cols)
+                    
+                    # Build UPDATE SET clause for all data columns
+                    update_cols = [f"{col} = EXCLUDED.{col}" for col in data_columns]
+                    set_clause = ', '.join(update_cols) + ", updated_at = CURRENT_TIMESTAMP"
+                    
+                    # Use DISTINCT ON to handle duplicates in source data
+                    # This ensures we only insert one row per unique constraint combination
+                    upsert_sql = text(f"""
+                        INSERT INTO {table_name} ({', '.join(all_columns)})
+                        SELECT DISTINCT ON ({unique_cols_str}) {', '.join(all_columns)}
+                        FROM {temp_table}
+                        ORDER BY {unique_cols_str}
+                        ON CONFLICT ({unique_cols_str})
+                        DO UPDATE SET {set_clause}
+                    """)
+                else:
+                    # No data columns, just insert
+                    # Use DISTINCT to handle duplicates
+                    upsert_sql = text(f"""
+                        INSERT INTO {table_name} ({', '.join(all_columns)})
+                        SELECT DISTINCT {', '.join(all_columns)} FROM {temp_table}
+                        ON CONFLICT (month, year)
+                        DO UPDATE SET updated_at = CURRENT_TIMESTAMP
                     """)
                 
                 result = conn.execute(upsert_sql)
