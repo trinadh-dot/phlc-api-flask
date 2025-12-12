@@ -90,6 +90,18 @@ def is_hubspot_file(filename: str) -> bool:
         filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls')
     )
 
+def is_practices_file(filename: str) -> bool:
+    """Check if filename starts with practices (but not TA Dashboard)"""
+    filename_lower = filename.lower()
+    # Exclude TA Dashboard files
+    normalized_name = filename_lower.replace('_', ' ').replace('-', ' ')
+    is_ta_dashboard = normalized_name in ['ta dashboard v4.xlsx', 'ta dashboard v4.xls']
+    
+    # Check if it starts with practices and is not TA Dashboard
+    return filename_lower.startswith('practices') and not is_ta_dashboard and (
+        filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls') or filename_lower.endswith('.csv')
+    )
+
 def parse_hubspot_table_name(filename: str) -> str:
     """
     Extract table name from hubspot filename.
@@ -227,6 +239,9 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
         
         # Special handling for HubSpot files
         is_hubspot = is_hubspot_file(filename_base)
+        
+        # Special handling for Practices files (not TA Dashboard)
+        is_practices = is_practices_file(filename_base)
         
         if is_ta_dashboard:
             # Special processing for TA_Dashboard_v4.xlsx
@@ -922,6 +937,123 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                         table_name=table_name,
                         inserted_count=inserted_count,
                         message=f'OK - Upserted {inserted_count} rows into {table_name} (Month: {month}, Year: {year})'
+                    )
+                    print(f"✅ Job {job_id} completed - {inserted_count} rows upserted into {table_name}")
+                else:
+                    print(f"⚠️  Job {job_id} not found when trying to update to completed")
+            except Exception as update_error:
+                print(f"❌ Error updating job to completed: {update_error}")
+                db.rollback()
+                raise
+        elif is_practices:
+            # Special processing for Practices files
+            # Reset file pointer to beginning in case it was read before
+            if hasattr(file_bytes, 'seek'):
+                file_bytes.seek(0)
+            
+            print(f"📅 Processing Practices file: {filename_base}")
+            
+            # Read file into DataFrame (support both Excel and CSV)
+            if filename_base.lower().endswith('.csv'):
+                df = pd.read_csv(file_bytes)
+            else:
+                # Excel file (if multiple sheets, take first)
+                df = pd.read_excel(file_bytes, sheet_name=0)
+            
+            # Sanitize column names for PostgreSQL best practices
+            original_columns = df.columns.tolist()
+            sanitized_columns = [sanitize_column_name(col) for col in df.columns]
+            df.columns = sanitized_columns
+            
+            # Log column name changes for debugging
+            if original_columns != sanitized_columns:
+                print(f"📝 Column names sanitized:")
+                for orig, sanitized in zip(original_columns, sanitized_columns):
+                    if orig != sanitized:
+                        print(f"   '{orig}' -> '{sanitized}'")
+            
+            # Table name is always practices
+            table_name = 'practices'
+            
+            with engine.begin() as conn:
+                from sqlalchemy import inspect as sql_inspect, text
+                inspector = sql_inspect(conn)
+                
+                # Check if table exists
+                table_exists = inspector.has_table(table_name)
+                
+                if not table_exists:
+                    # Create table with id, all data columns, created_at, updated_at
+                    create_table_sql = f"""
+                    CREATE TABLE {table_name} (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid()"""
+                    
+                    # Add all data columns
+                    for col in sanitized_columns:
+                        # Determine column type (use TEXT for now, can be improved)
+                        create_table_sql += f",\n                        {col} TEXT"
+                    
+                    create_table_sql += """,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"""
+                    
+                    # No additional unique constraints - using id (UUID) as the unique key
+                    
+                    create_table_sql += "\n                    )"
+                    
+                    conn.execute(text(create_table_sql))
+                    print(f"✅ Created table {table_name}")
+                else:
+                    # Table exists: check if columns match
+                    existing_columns = [col['name'].lower() for col in inspector.get_columns(table_name)]
+                    new_columns = [col.lower() for col in sanitized_columns]
+                    
+                    # Check if we need to add new columns
+                    missing_columns = [col for col in new_columns if col not in existing_columns and col not in ['id', 'created_at', 'updated_at']]
+                    if missing_columns:
+                        for col in missing_columns:
+                            try:
+                                alter_sql = text(f"ALTER TABLE {table_name} ADD COLUMN IF NOT EXISTS {col} TEXT")
+                                conn.execute(alter_sql)
+                                print(f"✅ Added column {col} to {table_name}")
+                            except Exception as e:
+                                print(f"⚠️  Could not add column {col}: {e}")
+                
+                # Use temporary table for insert
+                temp_table = f"practices_temp_{job_id.hex[:8]}"
+                df.to_sql(temp_table, conn, if_exists='replace', index=False)
+                
+                # Build insert SQL - using id (UUID) as unique key, so just insert all rows
+                if sanitized_columns:
+                    insert_sql = text(f"""
+                        INSERT INTO {table_name} ({', '.join(sanitized_columns)})
+                        SELECT {', '.join(sanitized_columns)} FROM {temp_table}
+                    """)
+                else:
+                    # No columns, just insert default
+                    insert_sql = text(f"""
+                        INSERT INTO {table_name} DEFAULT VALUES
+                    """)
+                
+                result = conn.execute(insert_sql)
+                inserted_count = result.rowcount
+                
+                # Drop temp table
+                conn.execute(text(f"DROP TABLE IF EXISTS {temp_table}"))
+                
+                print(f"✅ Upserted {inserted_count} rows into {table_name}")
+            
+            # Update job status
+            db = SessionLocal()
+            from .crud import get_job, update_job_status
+            try:
+                job = get_job(db, job_id)
+                if job:
+                    update_job_status(db, job,
+                        status='completed',
+                        table_name=table_name,
+                        inserted_count=inserted_count,
+                        message=f'OK - Upserted {inserted_count} rows into {table_name}'
                     )
                     print(f"✅ Job {job_id} completed - {inserted_count} rows upserted into {table_name}")
                 else:
