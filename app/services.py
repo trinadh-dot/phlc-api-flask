@@ -117,6 +117,36 @@ def is_ta_month_file(filename: str) -> bool:
     pattern = r'^ta_[a-z]{3,}\.(xlsx|xls|csv)$'
     return bool(re.match(pattern, filename_lower))
 
+def is_in_file(filename: str) -> bool:
+    """Check if filename matches in_<something> pattern (e.g., in_202501.xlsx)"""
+    filename_lower = filename.lower()
+    return filename_lower.startswith('in_') and (
+        filename_lower.endswith('.xlsx') or 
+        filename_lower.endswith('.xls') or 
+        filename_lower.endswith('.csv')
+    )
+
+def is_cleaned_file(filename: str) -> bool:
+    """
+    Check if filename represents a Cleaned* file.
+    
+    We deliberately accept filenames where "cleaned" appears
+    anywhere in the base name (before the extension), not only
+    at the very beginning. This covers patterns like:
+    
+      - Cleaned$.xlsx
+      - cleaned_report.xlsx
+      - Cleaned_2025-01.csv
+      - phlc_cleaned_.xlsx
+      - PHLC_CLEANED_January.csv
+    """
+    filename_lower = filename.lower()
+    base, ext = os.path.splitext(filename_lower)
+    # Some Excel exports name sheets like 'Cleaned$' when saved as CSV, so we allow 'cleaned$' too
+    has_cleaned = ('cleaned' in base) or ('cleaned$' in base)
+    has_valid_ext = ext in {'.xlsx', '.xls', '.csv'}
+    return has_cleaned and has_valid_ext
+
 def parse_ta_month_table_name(filename: str) -> str:
     """
     Extract table name from TA_<month> filename.
@@ -281,6 +311,9 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
         
         # Special handling for TA_<month> files (e.g., TA_Oct.xlsx)
         is_ta_month = is_ta_month_file(filename_base)
+        
+        # Special handling for in_<something>.xlsx files (e.g., in_202501.xlsx)
+        is_in_special = is_in_file(filename_base)
         
         if is_ta_dashboard:
             # Special processing for TA_Dashboard_v4.xlsx
@@ -1215,6 +1248,301 @@ def process_uploaded_file(job_id, file_bytes, filename, retry_count=0):
                     print(f"⚠️  Job {job_id} not found when trying to update to completed")
             except Exception as update_error:
                 print(f"❌ Error updating job to completed: {update_error}")
+                db.rollback()
+                raise
+        elif is_cleaned_file(filename_base):
+            # Special processing for Cleaned* files (e.g., Cleaned$.xlsx)
+            # Goal: create/append to table "cleaned" with columns:
+            #   id (UUID, PK, default gen_random_uuid())
+            #   created_at (timestamptz, default now)
+            #   updated_at (timestamptz, default now)
+            #   cycle (integer, NOT NULL, default 1, all rows = 1)
+            #   plus sanitized columns from the file as TEXT
+            if hasattr(file_bytes, 'seek'):
+                file_bytes.seek(0)
+            
+            print(f"📅 Processing CLEANED file: {filename_base}")
+            
+            # Read file into DataFrame (support both Excel and CSV)
+            if filename_base.lower().endswith('.csv'):
+                df = pd.read_csv(file_bytes)
+            else:
+                df = pd.read_excel(file_bytes, sheet_name=0)
+            
+            # Sanitize column names for PostgreSQL best practices
+            original_columns = df.columns.tolist()
+            sanitized_columns = [sanitize_column_name(col) for col in df.columns]
+            df.columns = sanitized_columns
+            
+            # Add cycle column with constant value 1 for all rows
+            df['cycle'] = 1
+            if 'cycle' not in sanitized_columns:
+                sanitized_columns.append('cycle')
+            
+            # Log column name changes for debugging
+            if original_columns != sanitized_columns:
+                print(f"📝 Column names sanitized:")
+                # Original list may not have 'cycle'; handle length mismatch safely
+                for orig, sanitized in zip(original_columns + (['cycle'] if 'cycle' not in original_columns else []), sanitized_columns):
+                    if orig != sanitized:
+                        print(f"   '{orig}' -> '{sanitized}'")
+            
+            table_name = 'cleaned'  # Physical table will be created as "cleaned" (quoted) in PostgreSQL
+            
+            with engine.begin() as conn:
+                from sqlalchemy import inspect as sql_inspect, text
+                inspector = sql_inspect(conn)
+                
+                # Check if table exists
+                table_exists = inspector.has_table(table_name)
+                
+                if not table_exists:
+                    # Create table "cleaned" with required metadata columns and data columns
+                    # Column order: id, (data columns), cycle, created_at, updated_at
+                    create_table_sql = """
+                    CREATE TABLE cleaned (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid()"""
+                    
+                    # Add data columns first (after id)
+                    for col in sanitized_columns:
+                        # Skip metadata/derived columns we already defined explicitly
+                        if col in {'id', 'created_at', 'updated_at', 'cycle'}:
+                            continue
+                        create_table_sql += f",\n                        {col} TEXT"
+                    
+                    # Add metadata columns at the end: cycle, created_at, updated_at
+                    create_table_sql += """,
+                        cycle INTEGER NOT NULL DEFAULT 1,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    )"""
+                    
+                    conn.execute(text(create_table_sql))
+                    print('✅ Created table cleaned')
+                else:
+                    # Table exists: ensure required columns are present; add missing data columns
+                    columns = inspector.get_columns(table_name)
+                    existing_columns = {col['name'].lower(): col for col in columns}
+                    
+                    # Ensure metadata columns exist
+                    if 'id' not in existing_columns:
+                        conn.execute(text('ALTER TABLE cleaned ADD COLUMN IF NOT EXISTS id UUID DEFAULT gen_random_uuid()'))
+                        try:
+                            conn.execute(text('ALTER TABLE cleaned ADD PRIMARY KEY (id)'))
+                        except Exception as e:
+                            print(f'⚠️  Could not add primary key on cleaned.id: {e}')
+                    
+                    if 'created_at' not in existing_columns:
+                        conn.execute(text('ALTER TABLE cleaned ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP'))
+                    
+                    if 'updated_at' not in existing_columns:
+                        conn.execute(text('ALTER TABLE cleaned ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP'))
+                    
+                    if 'cycle' not in existing_columns:
+                        conn.execute(text('ALTER TABLE cleaned ADD COLUMN IF NOT EXISTS cycle INTEGER'))
+                        conn.execute(text('UPDATE cleaned SET cycle = 1 WHERE cycle IS NULL'))
+                        try:
+                            conn.execute(text('ALTER TABLE cleaned ALTER COLUMN cycle SET NOT NULL'))
+                            conn.execute(text('ALTER TABLE cleaned ALTER COLUMN cycle SET DEFAULT 1'))
+                        except Exception as e:
+                            print(f'⚠️  Could not enforce NOT NULL/DEFAULT on cleaned.cycle: {e}')
+                    
+                    # Add any missing data columns (as TEXT)
+                    for col in sanitized_columns:
+                        if col in {'id', 'created_at', 'updated_at', 'cycle'}:
+                            continue
+                        if col.lower() not in existing_columns:
+                            try:
+                                alter_sql = text(f'ALTER TABLE cleaned ADD COLUMN IF NOT EXISTS {col} TEXT')
+                                conn.execute(alter_sql)
+                                print(f'✅ Added column {col} to cleaned')
+                            except Exception as e:
+                                print(f'⚠️  Could not add column {col} to cleaned: {e}')
+                
+                # Use temporary table for bulk insert
+                temp_table = f'cleaned_temp_{job_id.hex[:8]}'
+                df.to_sql(temp_table, conn, if_exists='replace', index=False)
+                
+                # Build insert SQL: insert data columns + cycle; metadata columns use defaults
+                data_columns = [col for col in sanitized_columns if col not in {'id', 'created_at', 'updated_at'}]
+                insert_sql = text(f'''
+                    INSERT INTO cleaned ({", ".join(data_columns)})
+                    SELECT {", ".join(data_columns)} FROM {temp_table}
+                ''')
+                
+                result = conn.execute(insert_sql)
+                inserted_count = result.rowcount
+                
+                # Drop temp table
+                conn.execute(text(f'DROP TABLE IF EXISTS {temp_table}'))
+                
+                print(f'✅ Inserted {inserted_count} rows into cleaned')
+            
+            # Update job status
+            db = SessionLocal()
+            from .crud import get_job, update_job_status
+            try:
+                job = get_job(db, job_id)
+                if job:
+                    update_job_status(db, job,
+                        status='completed',
+                        table_name=table_name,
+                        inserted_count=inserted_count,
+                        message=f'OK - Inserted {inserted_count} rows into table cleaned with cycle=1'
+                    )
+                    print(f'✅ Job {job_id} completed - {inserted_count} rows inserted into cleaned')
+                else:
+                    print(f'⚠️  Job {job_id} not found when trying to update to completed')
+            except Exception as update_error:
+                print(f'❌ Error updating job to completed: {update_error}')
+                db.rollback()
+                raise
+        elif is_in_special:
+            # Special processing for in_<something>.xlsx files
+            # Goal: create/append to table "in" with columns:
+            #   id (UUID, PK, default gen_random_uuid())
+            #   created_at (timestamptz, default now)
+            #   updated_at (timestamptz, default now)
+            #   cycle (integer, NOT NULL, default 1, all rows = 1)
+            #   plus sanitized columns from the file as TEXT
+            if hasattr(file_bytes, 'seek'):
+                file_bytes.seek(0)
+            
+            print(f"📅 Processing IN file: {filename_base}")
+            
+            # Read file into DataFrame (support both Excel and CSV)
+            if filename_base.lower().endswith('.csv'):
+                df = pd.read_csv(file_bytes)
+            else:
+                df = pd.read_excel(file_bytes, sheet_name=0)
+            
+            # Sanitize column names for PostgreSQL best practices
+            original_columns = df.columns.tolist()
+            sanitized_columns = [sanitize_column_name(col) for col in df.columns]
+            df.columns = sanitized_columns
+            
+            # Add cycle column with constant value 1 for all rows
+            df['cycle'] = 1
+            if 'cycle' not in sanitized_columns:
+                sanitized_columns.append('cycle')
+            
+            # Log column name changes for debugging
+            if original_columns != sanitized_columns:
+                print(f"📝 Column names sanitized:")
+                for orig, sanitized in zip(original_columns + (['cycle'] if 'cycle' not in original_columns else []), sanitized_columns):
+                    if orig != sanitized:
+                        print(f"   '{orig}' -> '{sanitized}'")
+            
+            table_name = 'in'  # Physical table will be created as "in" (quoted) in PostgreSQL
+            
+            with engine.begin() as conn:
+                from sqlalchemy import inspect as sql_inspect, text
+                inspector = sql_inspect(conn)
+                
+                # Check if table exists
+                table_exists = inspector.has_table(table_name)
+                
+                if not table_exists:
+                    # Create table "in" with required metadata columns and data columns
+                    # Column order: id, (data columns), cycle, created_at, updated_at
+                    create_table_sql = """
+                    CREATE TABLE "in" (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid()"""
+                    
+                    # Add data columns first (after id)
+                    for col in sanitized_columns:
+                        # Skip metadata/derived columns we already defined explicitly
+                        if col in {'id', 'created_at', 'updated_at', 'cycle'}:
+                            continue
+                        create_table_sql += f",\n                        {col} TEXT"
+                    
+                    # Add metadata columns at the end: cycle, created_at, updated_at
+                    create_table_sql += """,
+                        cycle INTEGER NOT NULL DEFAULT 1,
+                        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    )"""
+                    
+                    conn.execute(text(create_table_sql))
+                    print('✅ Created table "in"')
+                else:
+                    # Table exists: ensure required columns are present; add missing data columns
+                    columns = inspector.get_columns(table_name)
+                    existing_columns = {col['name'].lower(): col for col in columns}
+                    
+                    # Ensure metadata columns exist
+                    if 'id' not in existing_columns:
+                        conn.execute(text('ALTER TABLE "in" ADD COLUMN IF NOT EXISTS id UUID DEFAULT gen_random_uuid()'))
+                        try:
+                            conn.execute(text('ALTER TABLE "in" ADD PRIMARY KEY (id)'))
+                        except Exception as e:
+                            print(f'⚠️  Could not add primary key on "in".id: {e}')
+                    
+                    if 'created_at' not in existing_columns:
+                        conn.execute(text('ALTER TABLE "in" ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP'))
+                    
+                    if 'updated_at' not in existing_columns:
+                        conn.execute(text('ALTER TABLE "in" ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP'))
+                    
+                    if 'cycle' not in existing_columns:
+                        conn.execute(text('ALTER TABLE "in" ADD COLUMN IF NOT EXISTS cycle INTEGER'))
+                        conn.execute(text('UPDATE "in" SET cycle = 1 WHERE cycle IS NULL'))
+                        try:
+                            conn.execute(text('ALTER TABLE "in" ALTER COLUMN cycle SET NOT NULL'))
+                            conn.execute(text('ALTER TABLE "in" ALTER COLUMN cycle SET DEFAULT 1'))
+                        except Exception as e:
+                            print(f'⚠️  Could not enforce NOT NULL/DEFAULT on "in".cycle: {e}')
+                    
+                    # Add any missing data columns (as TEXT)
+                    for col in sanitized_columns:
+                        if col in {'id', 'created_at', 'updated_at', 'cycle'}:
+                            continue
+                        if col.lower() not in existing_columns:
+                            try:
+                                alter_sql = text(f'ALTER TABLE "in" ADD COLUMN IF NOT EXISTS {col} TEXT')
+                                conn.execute(alter_sql)
+                                print(f'✅ Added column {col} to "in"')
+                            except Exception as e:
+                                print(f'⚠️  Could not add column {col} to "in": {e}')
+                
+                # Use temporary table for bulk insert
+                temp_table = f'in_temp_{job_id.hex[:8]}'
+                df.to_sql(temp_table, conn, if_exists='replace', index=False)
+                
+                # Build insert SQL: insert data columns + cycle; metadata columns use defaults
+                data_columns = [col for col in sanitized_columns if col not in {'id', 'created_at', 'updated_at'}]
+                insert_cols_str = ', '.join(f'"{c}"' if c == 'in' else c for c in data_columns)
+                
+                insert_sql = text(f'''
+                    INSERT INTO "in" ({", ".join(data_columns)})
+                    SELECT {", ".join(data_columns)} FROM {temp_table}
+                ''')
+                
+                result = conn.execute(insert_sql)
+                inserted_count = result.rowcount
+                
+                # Drop temp table
+                conn.execute(text(f'DROP TABLE IF EXISTS {temp_table}'))
+                
+                print(f'✅ Inserted {inserted_count} rows into "in"')
+            
+            # Update job status
+            db = SessionLocal()
+            from .crud import get_job, update_job_status
+            try:
+                job = get_job(db, job_id)
+                if job:
+                    update_job_status(db, job,
+                        status='completed',
+                        table_name=table_name,
+                        inserted_count=inserted_count,
+                        message=f'OK - Inserted {inserted_count} rows into table "in" with cycle=1'
+                    )
+                    print(f'✅ Job {job_id} completed - {inserted_count} rows inserted into "in"')
+                else:
+                    print(f'⚠️  Job {job_id} not found when trying to update to completed')
+            except Exception as update_error:
+                print(f'❌ Error updating job to completed: {update_error}')
                 db.rollback()
                 raise
         else:

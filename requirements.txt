@@ -9,3 +9,4 @@ python-dateutil
 alembic
 boto3
 xlrd
+openpyxl>=3.1.0
