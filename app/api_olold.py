@@ -28,8 +28,6 @@ def ingest_postgres():
     """
     Ingest Excel file into PostgreSQL database.
     ---
-    tags:
-      - PHLC API
     consumes:
       - multipart/form-data
     parameters:
@@ -102,8 +100,6 @@ def ingest_postgres_from_s3():
     Ingest file from S3 into PostgreSQL database.
     The file must already be uploaded to S3 using /api/upload/s3 endpoint.
     ---
-    tags:
-      - PHLC API
     consumes:
       - application/json
     parameters:
@@ -190,8 +186,6 @@ def upload_to_s3():
     - N files -> treated as a directory, status will show file_names + file_count
     - Prevents duplicate uploads using a content hash
     ---
-    tags:
-      - PHLC API
     consumes:
       - multipart/form-data
     parameters:
@@ -319,8 +313,6 @@ def status(job_id: UUID):
     """
     Get ingestion job status.
     ---
-    tags:
-      - PHLC API
     parameters:
       - in: path
         name: job_id
@@ -391,8 +383,6 @@ def list_tables():
     """
     List all tables in the public schema.
     ---
-    tags:
-      - PHLC API
     responses:
       200:
         description: List of tables
@@ -422,8 +412,6 @@ def get_table_data(table_name: str):
     """
     Get data from a specific table.
     ---
-    tags:
-      - PHLC API
     parameters:
       - in: path
         name: table_name

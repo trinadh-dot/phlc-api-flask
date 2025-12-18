@@ -1,0 +1,146 @@
+{% extends 'admin/master.html' %}
+
+{% block head_css %}
+{{ super() }}
+<style>
+  :root {
+    --primary: #4f46e5;
+    --sidebar-bg: #1e293b;
+    --sidebar-hover: #334155;
+  }
+  
+  body {
+    background: #f8fafc;
+  }
+  
+  /* Hide the Flask-Admin navbar */
+  .navbar {
+    display: none !important;
+  }
+  
+  /* Hide page container padding */
+  .container, .container-fluid {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+  }
+  
+  /* Custom Sidebar */
+  .phlc-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 250px;
+    height: 100vh;
+    background: var(--sidebar-bg);
+    padding: 20px 0;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+  
+  .sidebar-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .sidebar-nav li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: #94a3b8;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  
+  .sidebar-nav li a:hover,
+  .sidebar-nav li a.active {
+    background: var(--sidebar-hover);
+    color: #fff;
+  }
+  
+  .sidebar-nav li a i {
+    width: 20px;
+    text-align: center;
+  }
+  
+  /* API Content - Direct display */
+  .api-content-wrapper {
+    margin-left: 250px;
+    width: calc(100% - 250px);
+    height: 100vh;
+    overflow: auto;
+  }
+  
+  .api-iframe {
+    width: 100%;
+    height: 100vh;
+    border: none;
+    display: block;
+  }
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+// Hide Swagger topbar when iframe loads
+document.addEventListener('DOMContentLoaded', function() {
+  const iframe = document.querySelector('.api-iframe');
+  
+  iframe.addEventListener('load', function() {
+    try {
+      // Access iframe document
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+      
+      // Add CSS to hide the topbar
+      const style = iframeDoc.createElement('style');
+      style.textContent = `
+        .topbar {
+          display: none !important;
+        }
+        .swagger-ui .topbar {
+          display: none !important;
+        }
+        .information-container {
+          margin-top: 0 !important;
+        }
+      `;
+      iframeDoc.head.appendChild(style);
+    } catch(e) {
+      // If cross-origin, we can't access iframe content
+      console.log('Could not access iframe content');
+    }
+  });
+});
+</script>
+{% endblock %}
+
+{% block body %}
+<!-- Custom Sidebar -->
+<div class="phlc-sidebar">
+  <ul class="sidebar-nav">
+    <li>
+      <a href="{{ url_for('admin.index') }}">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ url_for('dashboard.index') }}">
+        <i class="fas fa-th-large"></i>
+        <span>Dashboard</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ url_for('api_docs.index') }}" class="active">
+        <i class="fas fa-code"></i>
+        <span>API</span>
+      </a>
+    </li>
+  </ul>
+</div>
+
+<!-- API Content - Direct iframe without extra wrappers -->
+<div class="api-content-wrapper">
+  <iframe src="{{ url_for('flasgger.apidocs') }}" class="api-iframe"></iframe>
+</div>
+{% endblock %}

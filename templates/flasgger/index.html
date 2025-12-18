@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ config.get('title', 'API Docs') }}</title>
+  <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui.css" />
+  <style>
+    html {
+      box-sizing: border-box;
+      overflow: -moz-scrollbars-vertical;
+      overflow-y: scroll;
+    }
+    *, *:before, *:after {
+      box-sizing: inherit;
+    }
+    body {
+      margin:0;
+      padding:0;
+      background: #fafafa;
+    }
+    /* Hide the topbar */
+    .topbar {
+      display: none !important;
+    }
+    .swagger-ui .topbar {
+      display: none !important;
+    }
+    /* Hide the info section (apispec link, powered by, terms) */
+    .swagger-ui .information-container {
+      display: none !important;
+    }
+    .swagger-ui .info {
+      display: none !important;
+    }
+    /* Remove extra margin at top */
+    .swagger-ui .wrapper {
+      padding-top: 20px !important;
+    }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  
+  <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5.9.0/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function() {
+      const ui = SwaggerUIBundle({
+        url: "{{ url_for('flasgger.apispec_1') }}",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "BaseLayout",
+      })
+      window.ui = ui
+    }
+  </script>
+</body>
+</html>

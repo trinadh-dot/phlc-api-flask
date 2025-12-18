@@ -1,0 +1,179 @@
+{% extends 'admin/master.html' %}
+
+{% block head_css %}
+{{ super() }}
+<style>
+  :root {
+    --primary: #4f46e5;
+    --sidebar-bg: #1e293b;
+    --sidebar-hover: #334155;
+  }
+  
+  body {
+    background: #f8fafc;
+  }
+  
+  /* Hide top navbar */
+  .navbar {
+    display: none !important;
+  }
+  
+  /* Custom Sidebar */
+  .phlc-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 250px;
+    height: 100vh;
+    background: var(--sidebar-bg);
+    padding: 20px 0;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+  
+  .sidebar-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .sidebar-nav li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: #94a3b8;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  
+  .sidebar-nav li a:hover,
+  .sidebar-nav li a.active {
+    background: var(--sidebar-hover);
+    color: #fff;
+  }
+  
+  .sidebar-nav li a i {
+    width: 20px;
+    text-align: center;
+  }
+  
+  /* Main Content */
+  .main-content {
+    margin-left: 250px;
+    padding: 30px;
+  }
+  
+  .welcome-card {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  
+  .welcome-card h1 {
+    font-size: 2rem;
+    color: #1e293b;
+    margin-bottom: 10px;
+  }
+  
+  .welcome-card p {
+    color: #64748b;
+    font-size: 1.1rem;
+  }
+  
+  .action-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+  }
+  
+  .action-card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-decoration: none;
+    color: inherit;
+  }
+  
+  .action-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    text-decoration: none;
+  }
+  
+  .action-card i {
+    font-size: 3rem;
+    margin-bottom: 15px;
+  }
+  
+  .action-card.dashboard i { color: #8b5cf6; }
+  .action-card.api i { color: #0891b2; }
+  
+  .action-card h3 {
+    font-size: 1.25rem;
+    color: #1e293b;
+    margin-bottom: 8px;
+  }
+  
+  .action-card p {
+    color: #64748b;
+    margin: 0;
+  }
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block body %}
+<!-- Custom Sidebar -->
+<div class="phlc-sidebar">
+  <ul class="sidebar-nav">
+    <li>
+      <a href="{{ url_for('admin.index') }}" class="active">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ url_for('dashboard.index') }}">
+        <i class="fas fa-th-large"></i>
+        <span>Dashboard</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ url_for('api_docs.index') }}">
+        <i class="fas fa-code"></i>
+        <span>API</span>
+      </a>
+    </li>
+  </ul>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+  <div class="welcome-card">
+    <i class="fas fa-database" style="font-size: 4rem; color: #4f46e5; margin-bottom: 20px;"></i>
+    <h1>Welcome to PHLC Admin</h1>
+    <p>Manage your database tables and monitor system activity</p>
+  </div>
+
+  <div class="action-cards">
+    <a href="{{ url_for('dashboard.index') }}" class="action-card dashboard">
+      <i class="fas fa-th-large"></i>
+      <h3>Dashboard</h3>
+      <p>View all tables</p>
+    </a>
+    
+    <a href="{{ url_for('api_docs.index') }}" class="action-card api">
+      <i class="fas fa-code"></i>
+      <h3>API Documentation</h3>
+      <p>View API endpoints</p>
+    </a>
+  </div>
+</div>
+{% endblock %}

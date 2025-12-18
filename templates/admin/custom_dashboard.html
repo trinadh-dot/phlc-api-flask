@@ -1,0 +1,246 @@
+{% extends 'admin/master.html' %}
+
+{% block head_css %}
+{{ super() }}
+<style>
+  :root {
+    --primary: #4f46e5;
+    --sidebar-bg: #1e293b;
+    --sidebar-hover: #334155;
+  }
+  
+  body {
+    background: #f8fafc;
+  }
+  
+  /* Hide top navbar */
+  .navbar {
+    display: none !important;
+  }
+  
+  /* Custom Sidebar */
+  .phlc-sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 250px;
+    height: 100vh;
+    background: var(--sidebar-bg);
+    padding: 20px 0;
+    overflow-y: auto;
+    z-index: 1000;
+  }
+  
+  .sidebar-nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  .sidebar-nav li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: #94a3b8;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  
+  .sidebar-nav li a:hover,
+  .sidebar-nav li a.active {
+    background: var(--sidebar-hover);
+    color: #fff;
+  }
+  
+  .sidebar-nav li a i {
+    width: 20px;
+    text-align: center;
+  }
+  
+  /* Main Content */
+  .main-content {
+    margin-left: 250px;
+    padding: 30px;
+  }
+  
+  .page-header {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  
+  .page-header h1 {
+    font-size: 1.75rem;
+    color: #1e293b;
+    margin: 0 0 8px 0;
+  }
+  
+  .page-header p {
+    color: #64748b;
+    margin: 0;
+  }
+  
+  .table-tree {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  
+  .tree-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  
+  .tree-header h2 {
+    font-size: 1.25rem;
+    color: #1e293b;
+    margin: 0;
+  }
+  
+  .table-count {
+    background: #4f46e5;
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+  
+  .table-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+  }
+  
+  .table-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 20px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #334155;
+    transition: all 0.2s;
+  }
+  
+  .table-item:hover {
+    background: #eef2ff;
+    border-color: #4f46e5;
+    color: #4f46e5;
+    transform: translateX(4px);
+    text-decoration: none;
+  }
+  
+  .table-item i {
+    font-size: 1.25rem;
+    color: #64748b;
+  }
+  
+  .table-item:hover i {
+    color: #4f46e5;
+  }
+  
+  .table-item span {
+    font-weight: 500;
+  }
+  
+  .search-box {
+    margin-bottom: 20px;
+  }
+  
+  .search-box input {
+    width: 100%;
+    padding: 12px 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+  
+  .search-box input:focus {
+    outline: none;
+    border-color: #4f46e5;
+  }
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+{% endblock %}
+
+{% block body %}
+<!-- Custom Sidebar -->
+<div class="phlc-sidebar">
+  <ul class="sidebar-nav">
+    <li>
+      <a href="{{ url_for('admin.index') }}">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ url_for('dashboard.index') }}" class="active">
+        <i class="fas fa-th-large"></i>
+        <span>Dashboard</span>
+      </a>
+    </li>
+    <li>
+      <a href="{{ url_for('api_docs.index') }}">
+        <i class="fas fa-code"></i>
+        <span>API</span>
+      </a>
+    </li>
+  </ul>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+  <div class="page-header">
+    <h1><i class="fas fa-th-large" style="margin-right: 12px; color: #4f46e5;"></i>Database Dashboard</h1>
+    <p>Browse and manage all database tables</p>
+  </div>
+
+  <div class="table-tree">
+    <div class="tree-header">
+      <h2>Database Tables</h2>
+      <span class="table-count">{{ table_views|length }} Tables</span>
+    </div>
+    
+    <div class="search-box">
+      <input type="text" placeholder="Search tables..." id="tableSearch" onkeyup="filterTables()">
+    </div>
+    
+    <div class="table-list" id="tableList">
+      {% for table in table_views %}
+      <a href="{{ table.url }}" class="table-item" data-name="{{ table.name|lower }}">
+        <i class="fas fa-table"></i>
+        <span>{{ table.name }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+function filterTables() {
+  const input = document.getElementById('tableSearch');
+  const filter = input.value.toLowerCase();
+  const items = document.querySelectorAll('.table-item');
+  
+  items.forEach(item => {
+    const name = item.getAttribute('data-name');
+    if (name.indexOf(filter) > -1) {
+      item.style.display = 'flex';
+    } else {
+      item.style.display = 'none';
+    }
+  });
+}
+</script>
+{% endblock %}
