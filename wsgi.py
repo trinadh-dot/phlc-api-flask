@@ -5,9 +5,8 @@ Render start command example:
   gunicorn --bind 0.0.0.0:$PORT wsgi:app
 """
 
-from app_auto import create_app
-
-# Gunicorn looks for a module-level variable named `app`
-app = create_app()
+# The Flask app is created in `application.py` as `app = create_app()`.
+# Import it here so Gunicorn can load `wsgi:app`.
+from application import app  # noqa: F401
 
 

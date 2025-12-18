@@ -1,0 +1,27 @@
+databases:
+  - name: phlc-db
+    plan: free
+    databaseName: phlc
+    user: phlc
+
+services:
+  - type: web
+    name: phlc-api-flask
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT wsgi:app
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: phlc-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: UPLOAD_FOLDER
+        value: /tmp/phlc_uploads
+      - key: AWS_REGION
+        value: us-east-1
+      - key: S3_BUCKET
+        value: phlc
+
