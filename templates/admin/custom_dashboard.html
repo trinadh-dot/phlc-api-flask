@@ -8,219 +8,233 @@
     --sidebar-bg: #1e293b;
     --sidebar-hover: #334155;
   }
-  
+
   body {
-    background: #f8fafc;
+    background: var(--bg-body) !important;
   }
-  
-  /* Hide top navbar */
-  .navbar {
-    display: none !important;
-  }
-  
-  /* Custom Sidebar */
-  .phlc-sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: 250px;
-    height: 100vh;
-    background: var(--sidebar-bg);
-    padding: 20px 0;
-    overflow-y: auto;
-    z-index: 1000;
-  }
-  
-  .sidebar-nav {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  
-  .sidebar-nav li a {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 20px;
-    color: #94a3b8;
-    text-decoration: none;
-    transition: all 0.2s;
-  }
-  
-  .sidebar-nav li a:hover,
-  .sidebar-nav li a.active {
-    background: var(--sidebar-hover);
-    color: #fff;
-  }
-  
-  .sidebar-nav li a i {
-    width: 20px;
-    text-align: center;
-  }
-  
+
   /* Main Content */
   .main-content {
-    margin-left: 250px;
-    padding: 30px;
+    margin-left: 260px;
+    padding: 40px;
+    max-width: 1400px;
   }
-  
-  .page-header {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    margin-bottom: 30px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  }
-  
-  .page-header h1 {
-    font-size: 1.75rem;
-    color: #1e293b;
-    margin: 0 0 8px 0;
-  }
-  
-  .page-header p {
-    color: #64748b;
-    margin: 0;
-  }
-  
-  .table-tree {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  }
-  
-  .tree-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #e2e8f0;
-  }
-  
-  .tree-header h2 {
-    font-size: 1.25rem;
-    color: #1e293b;
-    margin: 0;
-  }
-  
-  .table-count {
-    background: #4f46e5;
-    color: white;
-    padding: 6px 16px;
+
+  .dashboard-header {
+    background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
     border-radius: 20px;
-    font-size: 0.875rem;
-    font-weight: 600;
+    padding: 32px;
+    margin-bottom: 32px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
   }
-  
-  .table-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 15px;
-  }
-  
-  .table-item {
+
+  .header-content h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 8px 0;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 15px 20px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    text-decoration: none;
-    color: #334155;
-    transition: all 0.2s;
   }
-  
-  .table-item:hover {
-    background: #eef2ff;
-    border-color: #4f46e5;
-    color: #4f46e5;
-    transform: translateX(4px);
-    text-decoration: none;
+
+  .header-content p {
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+    font-size: 1rem;
   }
-  
-  .table-item i {
-    font-size: 1.25rem;
-    color: #64748b;
+
+  .header-stats {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(8px);
+    padding: 12px 24px;
+    border-radius: 12px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.2);
   }
-  
-  .table-item:hover i {
-    color: #4f46e5;
+
+  .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
   }
-  
-  .table-item span {
-    font-weight: 500;
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.8);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
   }
-  
-  .search-box {
-    margin-bottom: 20px;
+
+  .dashboard-grid {
+    background: white;
+    border-radius: 20px;
+    padding: 32px;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid rgba(0, 0, 0, 0.05);
   }
-  
-  .search-box input {
+
+  .grid-controls {
+    margin-bottom: 24px;
+    position: relative;
+  }
+
+  .search-input-wrapper {
+    position: relative;
+    max-width: 400px;
+  }
+
+  .search-input-wrapper i {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+  }
+
+  .search-input {
     width: 100%;
-    padding: 12px 20px;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
+    padding: 14px 14px 14px 44px;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
     font-size: 0.95rem;
+    transition: var(--transition);
+    background: var(--bg-body);
   }
-  
-  .search-box input:focus {
+
+  .search-input:focus {
     outline: none;
-    border-color: #4f46e5;
+    border-color: var(--primary-light);
+    background: white;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+  }
+
+  .tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  .table-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-decoration: none;
+    color: var(--text-main);
+    transition: var(--transition);
+    position: relative;
+  }
+
+  .table-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow-md);
+    text-decoration: none;
+    color: var(--text-main);
+  }
+
+  .table-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: #eef2ff;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    transition: var(--transition);
+  }
+
+  .table-card:hover .table-icon {
+    background: var(--primary);
+    color: white;
+  }
+
+  .table-info {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .table-name {
+    font-weight: 600;
+    font-size: 1.3rem;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .table-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .status-indicator {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e2e8f0;
+  }
+
+  .table-card:hover .status-indicator {
+    background: var(--success);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
   }
 </style>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 {% endblock %}
 
 {% block body %}
-<!-- Custom Sidebar -->
-<div class="phlc-sidebar">
-  <ul class="sidebar-nav">
-    <li>
-      <a href="{{ url_for('admin.index') }}">
-        <i class="fas fa-home"></i>
-        <span>Home</span>
-      </a>
-    </li>
-    <li>
-      <a href="{{ url_for('dashboard.index') }}" class="active">
-        <i class="fas fa-th-large"></i>
-        <span>Dashboard</span>
-      </a>
-    </li>
-    <li>
-      <a href="{{ url_for('api_docs.index') }}">
-        <i class="fas fa-code"></i>
-        <span>API</span>
-      </a>
-    </li>
-  </ul>
-</div>
+<!-- Custom Sidebar (from master) is already included -->
 
 <!-- Main Content -->
 <div class="main-content">
-  <div class="page-header">
-    <h1><i class="fas fa-th-large" style="margin-right: 12px; color: #4f46e5;"></i>Database Dashboard</h1>
-    <p>Browse and manage all database tables</p>
+  <div class="dashboard-header">
+    <div class="header-content">
+      <h1><i class="fas fa-layer-group" style="color: white;"></i> Database Dashboard</h1>
+      <p>Manage and monitor your database tables</p>
+    </div>
+    <div class="header-stats">
+      <div class="stat-value">{{ table_views|length }}</div>
+      <div class="stat-label">Total Tables</div>
+    </div>
   </div>
 
-  <div class="table-tree">
-    <div class="tree-header">
-      <h2>Database Tables</h2>
-      <span class="table-count">{{ table_views|length }} Tables</span>
+  <div class="dashboard-grid">
+    <div class="grid-controls">
+      <div class="search-input-wrapper">
+        <i class="fas fa-search"></i>
+        <input type="text" class="search-input" placeholder="Search tables..." id="tableSearch"
+          onkeyup="filterTables()">
+      </div>
     </div>
-    
-    <div class="search-box">
-      <input type="text" placeholder="Search tables..." id="tableSearch" onkeyup="filterTables()">
-    </div>
-    
-    <div class="table-list" id="tableList">
+
+    <div class="tables-grid" id="tableList">
       {% for table in table_views %}
-      <a href="{{ table.url }}" class="table-item" data-name="{{ table.name|lower }}">
-        <i class="fas fa-table"></i>
-        <span>{{ table.name }}</span>
+      <a href="{{ table.url }}" class="table-card" data-name="{{ table.name|lower }}">
+        <div class="table-icon">
+          <i class="fas fa-table"></i>
+        </div>
+        <div class="table-info">
+          <div class="table-name">{{ table.name }}</div>
+          <div class="table-meta">Public Schema</div>
+        </div>
+        <div class="status-indicator"></div>
       </a>
       {% endfor %}
     </div>
@@ -228,19 +242,19 @@
 </div>
 
 <script>
-function filterTables() {
-  const input = document.getElementById('tableSearch');
-  const filter = input.value.toLowerCase();
-  const items = document.querySelectorAll('.table-item');
-  
-  items.forEach(item => {
-    const name = item.getAttribute('data-name');
-    if (name.indexOf(filter) > -1) {
-      item.style.display = 'flex';
-    } else {
-      item.style.display = 'none';
-    }
-  });
-}
+  function filterTables() {
+    const input = document.getElementById('tableSearch');
+    const filter = input.value.toLowerCase();
+    const items = document.querySelectorAll('.table-card');
+
+    items.forEach(item => {
+      const name = item.getAttribute('data-name');
+      if (name.indexOf(filter) > -1) {
+        item.style.display = 'flex';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
 </script>
 {% endblock %}

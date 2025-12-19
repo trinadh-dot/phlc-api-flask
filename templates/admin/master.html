@@ -23,69 +23,201 @@
             <link href="{{ css_url }}" rel="stylesheet">
           {% endfor %}
         {% endif %}
+        
+        <!-- Google Fonts: Inter -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
         <style>
+        :root {
+            /* Core Palette */
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --primary-light: #818cf8;
+            --secondary: #ec4899;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+
+            /* Neutral / Dark Mode Base */
+            --bg-body: #f1f5f9;
+            --bg-card: #ffffff;
+            --sidebar-bg: #0f172a;
+            --sidebar-hover: #1e293b;
+            
+            /* Text */
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --text-light: #cbd5e1;
+
+            /* Effects */
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius: 12px;
+            --transition: all 0.3s ease;
+        }
+
         html, body {
-            background-color: white;
+            background-color: var(--bg-body);
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            color: var(--text-main);
         }
         
         /* Hide top navbar on all pages */
         .navbar {
             display: none !important;
         }
+        
+        /* Helpers */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: var(--radius);
+        }
         </style>
         
         <!-- Custom Sidebar Styles -->
         <style>
-          :root {
-            --primary: #4f46e5;
-            --sidebar-bg: #1e293b;
-            --sidebar-hover: #334155;
-          }
-          
           /* Custom Sidebar */
           .phlc-sidebar {
             position: fixed;
             left: 0;
             top: 0;
-            width: 250px;
+            width: 260px;
             height: 100vh;
             background: var(--sidebar-bg);
-            padding: 20px 0;
+            padding: 0;
             overflow-y: auto;
             z-index: 999;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 4px 0 24px rgba(0,0,0,0.2);
+          }
+
+          .sidebar-header {
+            padding: 30px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+          }
+
+          .sidebar-brand {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
           }
           
           .sidebar-nav {
             list-style: none;
-            padding: 0;
+            padding: 24px 16px;
             margin: 0;
+            flex: 1;
           }
           
+          .sidebar-nav li {
+            margin-bottom: 8px;
+          }
+
           .sidebar-nav li a {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 12px 20px;
-            color: #94a3b8;
+            gap: 14px;
+            padding: 14px 20px;
+            color: var(--text-light);
             text-decoration: none;
-            transition: all 0.2s;
+            transition: var(--transition);
+            border-radius: 12px;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
           }
           
-          .sidebar-nav li a:hover,
+          .sidebar-nav li a:hover {
+            background: rgba(255,255,255,0.05);
+            color: white;
+            transform: translateX(4px);
+          }
+
           .sidebar-nav li a.active {
-            background: var(--sidebar-hover);
-            color: #fff;
+            background: linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
+            color: #818cf8;
+            border-left: 3px solid #6366f1;
+            border-radius: 4px 12px 12px 4px;
           }
           
           .sidebar-nav li a i {
-            width: 20px;
+            width: 24px;
             text-align: center;
+            font-size: 1.1em;
+            transition: var(--transition);
+          }
+
+          .sidebar-nav li a:hover i {
+            transform: scale(1.1);
+          }
+
+          /* Live Indicator */
+          .live-status {
+            margin-top: auto;
+            padding: 24px;
+            background: rgba(0,0,0,0.2);
+          }
+
+          .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 20px;
+            color: var(--success);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            animation: pulse-green 2s infinite;
+          }
+
+          @keyframes pulse-green {
+            0% {
+              transform: scale(0.95);
+              box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+            70% {
+              transform: scale(1);
+              box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+            100% {
+              transform: scale(0.95);
+              box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
           }
           
           /* Adjust page content */
           body {
-            padding-left: 250px !important;
-            background: #f8fafc !important;
+            padding-left: 260px !important;
+            background: var(--bg-body) !important;
           }
         </style>
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -98,6 +230,13 @@
   <body>
     <!-- Custom Sidebar - Shows on ALL Flask-Admin pages -->
     <div class="phlc-sidebar">
+      <div class="sidebar-header">
+        <a href="{{ url_for('admin.index') }}" class="sidebar-brand">
+          <i class="fas fa-layer-group"></i>
+          PHLC Admin
+        </a>
+      </div>
+
       <ul class="sidebar-nav">
         <li>
           <a href="{{ url_for('admin.index') }}">
@@ -107,17 +246,24 @@
         </li>
         <li>
           <a href="{{ url_for('dashboard.index') }}">
-            <i class="fas fa-th-large"></i>
+            <i class="fas fa-chart-pie"></i>
             <span>Dashboard</span>
           </a>
         </li>
         <li>
           <a href="{{ url_for('api_docs.index') }}">
             <i class="fas fa-code"></i>
-            <span>API</span>
+            <span>API Docs</span>
           </a>
         </li>
       </ul>
+
+      <div class="live-status">
+        <div class="status-badge">
+          <div class="status-dot"></div>
+          System Online
+        </div>
+      </div>
     </div>
 
     {% block page_body %}
