@@ -2,330 +2,346 @@
 {% import 'admin/static.html' as admin_static with context%}
 <!DOCTYPE html>
 <html>
-  <head>
-    <title>{% block title %}{% if admin_view.category %}{{ admin_view.category }} - {% endif %}{{ admin_view.name }} - {{ admin_view.admin.name }}{% endblock %}</title>
-    {% block head_meta %}
-        <meta charset="UTF-8">
-        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="description" content="">
-        <meta name="author" content="">
-    {% endblock %}
-    {% block head_css %}
-        <link href="{{ admin_static.url(filename='bootstrap/bootstrap3/swatch/{swatch}/bootstrap.min.css'.format(swatch=config.get('FLASK_ADMIN_SWATCH', 'default')), v='3.3.5') }}" rel="stylesheet">
-        {% if config.get('FLASK_ADMIN_SWATCH', 'default') == 'default' %}
-        <link href="{{ admin_static.url(filename='bootstrap/bootstrap3/css/bootstrap-theme.min.css', v='3.3.5') }}" rel="stylesheet">
-        {% endif %}
-        <link href="{{ admin_static.url(filename='admin/css/bootstrap3/admin.css', v='1.1.1') }}" rel="stylesheet">
-        <link href="{{ admin_static.url(filename='admin/css/bootstrap3/submenu.css') }}" rel="stylesheet">
-        {% if admin_view.extra_css %}
-          {% for css_url in admin_view.extra_css %}
-            <link href="{{ css_url }}" rel="stylesheet">
-          {% endfor %}
-        {% endif %}
-        
-        <!-- Google Fonts: Inter -->
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-        <style>
-        :root {
-            /* Core Palette */
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --primary-light: #818cf8;
-            --secondary: #ec4899;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --info: #3b82f6;
+<head>
+  <title>{% block title %}{% if admin_view.category %}{{ admin_view.category }} - {% endif %}{{ admin_view.name }} - {{
+    admin_view.admin.name }}{% endblock %}</title>
+  {% block head_meta %}
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="">
+  <meta name="author" content="">
+  {% endblock %}
+  {% block head_css %}
+  <link
+    href="{{ admin_static.url(filename='bootstrap/bootstrap3/swatch/{swatch}/bootstrap.min.css'.format(swatch=config.get('FLASK_ADMIN_SWATCH', 'default')), v='3.3.5') }}"
+    rel="stylesheet">
+  {% if config.get('FLASK_ADMIN_SWATCH', 'default') == 'default' %}
+  <link href="{{ admin_static.url(filename='bootstrap/bootstrap3/css/bootstrap-theme.min.css', v='3.3.5') }}"
+    rel="stylesheet">
+  {% endif %}
+  <link href="{{ admin_static.url(filename='admin/css/bootstrap3/admin.css', v='1.1.1') }}" rel="stylesheet">
+  <link href="{{ admin_static.url(filename='admin/css/bootstrap3/submenu.css') }}" rel="stylesheet">
+  {% if admin_view.extra_css %}
+  {% for css_url in admin_view.extra_css %}
+  <link href="{{ css_url }}" rel="stylesheet">
+  {% endfor %}
+  {% endif %}
 
-            /* Neutral / Dark Mode Base */
-            --bg-body: #f1f5f9;
-            --bg-card: #ffffff;
-            --sidebar-bg: #0f172a;
-            --sidebar-hover: #1e293b;
-            
-            /* Text */
-            --text-main: #1e293b;
-            --text-muted: #64748b;
-            --text-light: #cbd5e1;
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-            /* Effects */
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-            --radius: 12px;
-            --transition: all 0.3s ease;
-        }
+  <style>
+    :root {
+      /* Core Palette */
+      --primary: #6366f1;
+      --primary-dark: #4f46e5;
+      --primary-light: #818cf8;
+      --secondary: #ec4899;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --info: #3b82f6;
 
-        html, body {
-            background-color: var(--bg-body);
-            font-family: 'Inter', sans-serif;
-            -webkit-font-smoothing: antialiased;
-            color: var(--text-main);
-        }
-        
-        /* Hide top navbar on all pages */
-        .navbar {
-            display: none !important;
-        }
-        
-        /* Helpers */
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: var(--radius);
-        }
-        </style>
-        
-        <!-- Custom Sidebar Styles -->
-        <style>
-          /* Custom Sidebar */
-          .phlc-sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 260px;
-            height: 100vh;
-            background: var(--sidebar-bg);
-            padding: 0;
-            overflow-y: auto;
-            z-index: 999;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 4px 0 24px rgba(0,0,0,0.2);
-          }
+      /* Neutral / Dark Mode Base */
+      --bg-body: #f1f5f9;
+      --bg-card: #ffffff;
+      --sidebar-bg: #0f172a;
+      --sidebar-hover: #1e293b;
 
-          .sidebar-header {
-            padding: 30px 24px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-          }
+      /* Text */
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --text-light: #cbd5e1;
 
-          .sidebar-brand {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: white;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.5px;
-          }
-          
-          .sidebar-nav {
-            list-style: none;
-            padding: 24px 16px;
-            margin: 0;
-            flex: 1;
-          }
-          
-          .sidebar-nav li {
-            margin-bottom: 8px;
-          }
+      /* Effects */
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --radius: 12px;
+      --transition: all 0.3s ease;
+    }
 
-          .sidebar-nav li a {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 14px 20px;
-            color: var(--text-light);
-            text-decoration: none;
-            transition: var(--transition);
-            border-radius: 12px;
-            font-weight: 500;
-            position: relative;
-            overflow: hidden;
-          }
-          
-          .sidebar-nav li a:hover {
-            background: rgba(255,255,255,0.05);
-            color: white;
-            transform: translateX(4px);
-          }
+    html,
+    body {
+      background-color: var(--bg-body);
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      color: var(--text-main);
+    }
 
-          .sidebar-nav li a.active {
-            background: linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
-            color: #818cf8;
-            border-left: 3px solid #6366f1;
-            border-radius: 4px 12px 12px 4px;
-          }
-          
-          .sidebar-nav li a i {
-            width: 24px;
-            text-align: center;
-            font-size: 1.1em;
-            transition: var(--transition);
-          }
+    /* Hide top navbar on all pages */
+    .navbar {
+      display: none !important;
+    }
 
-          .sidebar-nav li a:hover i {
-            transform: scale(1.1);
-          }
+    /* Helpers */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: var(--radius);
+    }
+  </style>
 
-          /* Live Indicator */
-          .live-status {
-            margin-top: auto;
-            padding: 24px;
-            background: rgba(0,0,0,0.2);
-          }
+  <!-- Custom Sidebar Styles -->
+  <style>
+    /* Custom Sidebar */
+    .phlc-sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      width: 260px;
+      height: 100vh;
+      background: var(--sidebar-bg);
+      padding: 0;
+      overflow-y: auto;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.2);
+    }
 
-          .status-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-            border-radius: 20px;
-            color: var(--success);
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-          }
+    .sidebar-header {
+      padding: 30px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
 
-          .status-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--success);
-            border-radius: 50%;
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-            animation: pulse-green 2s infinite;
-          }
+    .sidebar-brand {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: white;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
 
-          @keyframes pulse-green {
-            0% {
-              transform: scale(0.95);
-              box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-            }
-            70% {
-              transform: scale(1);
-              box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
-            }
-            100% {
-              transform: scale(0.95);
-              box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
-            }
-          }
-          
-          /* Adjust page content */
-          body {
-            padding-left: 260px !important;
-            background: var(--bg-body) !important;
-          }
-        </style>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    {% endblock %}
-    {% block head %}
-    {% endblock %}
-    {% block head_tail %}
-    {% endblock %}
-  </head>
-  <body>
-    <!-- Custom Sidebar - Shows on ALL Flask-Admin pages -->
-    <div class="phlc-sidebar">
-      <div class="sidebar-header">
-        <a href="{{ url_for('admin.index') }}" class="sidebar-brand">
-          <i class="fas fa-layer-group"></i>
-          PHLC Admin
+    .sidebar-nav {
+      list-style: none;
+      padding: 24px 16px;
+      margin: 0;
+      flex: 1;
+    }
+
+    .sidebar-nav li {
+      margin-bottom: 8px;
+    }
+
+    .sidebar-nav li a {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 20px;
+      color: var(--text-light);
+      text-decoration: none;
+      transition: var(--transition);
+      border-radius: 12px;
+      font-weight: 500;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sidebar-nav li a:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: white;
+      transform: translateX(4px);
+    }
+
+    .sidebar-nav li a.active {
+      background: linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
+      color: #818cf8;
+      border-left: 3px solid #6366f1;
+      border-radius: 4px 12px 12px 4px;
+    }
+
+    .sidebar-nav li a i {
+      width: 24px;
+      text-align: center;
+      font-size: 1.1em;
+      transition: var(--transition);
+    }
+
+    .sidebar-nav li a:hover i {
+      transform: scale(1.1);
+    }
+
+    /* Live Indicator */
+    .live-status {
+      margin-top: auto;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      border-radius: 20px;
+      color: var(--success);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      animation: pulse-green 2s infinite;
+    }
+
+    @keyframes pulse-green {
+      0% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+
+      70% {
+        transform: scale(1);
+        box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+      }
+
+      100% {
+        transform: scale(0.95);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+      }
+    }
+
+    /* Adjust page content */
+    body {
+      padding-left: 260px !important;
+      background: var(--bg-body) !important;
+    }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  {% endblock %}
+  {% block head %}
+  {% endblock %}
+  {% block head_tail %}
+  {% endblock %}
+</head>
+
+<body>
+  <!-- Custom Sidebar - Shows on ALL Flask-Admin pages -->
+  <div class="phlc-sidebar">
+    <div class="sidebar-header">
+      <a href="{{ url_for('admin.index') }}" class="sidebar-brand">
+        <i class="fas fa-layer-group"></i>
+        PHLC Admin
+      </a>
+    </div>
+
+    <ul class="sidebar-nav">
+      <li>
+        <a href="{{ url_for('admin.index') }}">
+          <i class="fas fa-home"></i>
+          <span>Home</span>
         </a>
-      </div>
+      </li>
+      <li>
+        <a href="{{ url_for('dashboard.index') }}">
+          <i class="fas fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </a>
+      </li>
+      <li>
+        <a href="{{ url_for('api_docs.index') }}">
+          <i class="fas fa-code"></i>
+          <span>API</span>
+        </a>
+      </li>
+    </ul>
 
-      <ul class="sidebar-nav">
-        <li>
-          <a href="{{ url_for('admin.index') }}">
-            <i class="fas fa-home"></i>
-            <span>Home</span>
-          </a>
-        </li>
-        <li>
-          <a href="{{ url_for('dashboard.index') }}">
-            <i class="fas fa-chart-pie"></i>
-            <span>Dashboard</span>
-          </a>
-        </li>
-        <li>
-          <a href="{{ url_for('api_docs.index') }}">
-            <i class="fas fa-code"></i>
-            <span>API Docs</span>
-          </a>
-        </li>
-      </ul>
-
-      <div class="live-status">
-        <div class="status-badge">
-          <div class="status-dot"></div>
-          System Online
-        </div>
+    <div class="live-status">
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        System Online
       </div>
     </div>
+  </div>
 
-    {% block page_body %}
-    <div class="container{% if config.get('FLASK_ADMIN_FLUID_LAYOUT', False) %}-fluid{% endif %}">
-      <nav class="navbar navbar-default" role="navigation">
-        <!-- Brand and toggle get grouped for better mobile display -->
-        <div class="navbar-header">
-          <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#admin-navbar-collapse">
-            <span class="sr-only">Toggle navigation</span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-          </button>
-          {% block brand %}
-          <a class="navbar-brand" href="{{ admin_view.admin.url }}">{{ admin_view.admin.name }}</a>
-          {% endblock %}
-        </div>
-        <!-- navbar content -->
-        <div class="collapse navbar-collapse" id="admin-navbar-collapse">
-          {% block main_menu %}
-          <ul class="nav navbar-nav">
-            {{ layout.menu() }}
-          </ul>
-          {% endblock %}
+  {% block page_body %}
+  <div class="container{% if config.get('FLASK_ADMIN_FLUID_LAYOUT', False) %}-fluid{% endif %}">
+    <nav class="navbar navbar-default" role="navigation">
+      <!-- Brand and toggle get grouped for better mobile display -->
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#admin-navbar-collapse">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        {% block brand %}
+        <a class="navbar-brand" href="{{ admin_view.admin.url }}">{{ admin_view.admin.name }}</a>
+        {% endblock %}
+      </div>
+      <!-- navbar content -->
+      <div class="collapse navbar-collapse" id="admin-navbar-collapse">
+        {% block main_menu %}
+        <ul class="nav navbar-nav">
+          {{ layout.menu() }}
+        </ul>
+        {% endblock %}
 
-          {% block menu_links %}
-          <ul class="nav navbar-nav navbar-right">
-            {{ layout.menu_links() }}
-          </ul>
-          {% endblock %}
-          {% block access_control %}
-          {% endblock %}
-        </div>
-      </nav>
+        {% block menu_links %}
+        <ul class="nav navbar-nav navbar-right">
+          {{ layout.menu_links() }}
+        </ul>
+        {% endblock %}
+        {% block access_control %}
+        {% endblock %}
+      </div>
+    </nav>
 
-      {% block messages %}
-      {{ layout.messages() }}
-      {% endblock %}
-
-      {# store the jinja2 context for form_rules #}
-      {% set render_ctx = h.resolve_ctx() %}
-
-      {% block body %}{% endblock %}
-    </div>
+    {% block messages %}
+    {{ layout.messages() }}
     {% endblock %}
 
-    {% block tail_js %}
-    <script src="{{ admin_static.url(filename='vendor/jquery.min.js', v='3.5.1') }}" type="text/javascript"></script>
-    <script src="{{ admin_static.url(filename='bootstrap/bootstrap3/js/bootstrap.min.js', v='3.3.5') }}" type="text/javascript"></script>
-    <script src="{{ admin_static.url(filename='vendor/moment.min.js', v='2.22.2') }}" type="text/javascript"></script>
-    <script src="{{ admin_static.url(filename='vendor/bootstrap3/js/bootstrap-datetimepicker.min.js', v='4.17.47') }}" type="text/javascript"></script>
-    <script src="{{ admin_static.url(filename='vendor/select2/select2.min.js', v='3.5.2') }}" type="text/javascript"></script>
-    <script src="{{ admin_static.url(filename='vendor/multi-level-dropdowns-bootstrap/bootstrap-submenu.js', v='2.0.4') }}" type="text/javascript"></script>
-    <script src="{{ admin_static.url(filename='admin/js/helpers.js', v='1.0.0') }}" type="text/javascript"></script>
-    {% if admin_view.extra_js %}
-      {% for js_url in admin_view.extra_js %}
-        <script src="{{ js_url }}" type="text/javascript"></script>
-      {% endfor %}
-    {% endif %}
-    {% endblock %}
+    {# store the jinja2 context for form_rules #}
+    {% set render_ctx = h.resolve_ctx() %}
 
-    {% block tail %}
-    {% endblock %}
-  </body>
+    {% block body %}{% endblock %}
+  </div>
+  {% endblock %}
+
+  {% block tail_js %}
+  <script src="{{ admin_static.url(filename='vendor/jquery.min.js', v='3.5.1') }}" type="text/javascript"></script>
+  <script src="{{ admin_static.url(filename='bootstrap/bootstrap3/js/bootstrap.min.js', v='3.3.5') }}"
+    type="text/javascript"></script>
+  <script src="{{ admin_static.url(filename='vendor/moment.min.js', v='2.22.2') }}" type="text/javascript"></script>
+  <script src="{{ admin_static.url(filename='vendor/bootstrap3/js/bootstrap-datetimepicker.min.js', v='4.17.47') }}"
+    type="text/javascript"></script>
+  <script src="{{ admin_static.url(filename='vendor/select2/select2.min.js', v='3.5.2') }}"
+    type="text/javascript"></script>
+  <script
+    src="{{ admin_static.url(filename='vendor/multi-level-dropdowns-bootstrap/bootstrap-submenu.js', v='2.0.4') }}"
+    type="text/javascript"></script>
+  <script src="{{ admin_static.url(filename='admin/js/helpers.js', v='1.0.0') }}" type="text/javascript"></script>
+  {% if admin_view.extra_js %}
+  {% for js_url in admin_view.extra_js %}
+  <script src="{{ js_url }}" type="text/javascript"></script>
+  {% endfor %}
+  {% endif %}
+  {% endblock %}
+
+  {% block tail %}
+  {% endblock %}
+</body>
+
 </html>
